@@ -1,0 +1,5 @@
+#!/bin/sh
+exec 2>&1
+exec setuidgid nomail /usr/local/sbin/noqueue 2 \
+			/usr/bin/nosend \
+			/var/spool/nomail

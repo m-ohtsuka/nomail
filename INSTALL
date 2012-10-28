@@ -1,0 +1,44 @@
+-*- text -*-
+=================================================================
+
+                 Nomail インストールガイド
+
+=================================================================
+
+1. nomail, nosend の行頭の perl の PATH を適切に設定する。
+
+2. nomail ユーザーを作成する。
+   Linux 系 OS では useradd nomail で作成できます。
+
+3. make install する。
+
+4. nomail.8 nosend.8 を /usr/man/ja/man8/ 等にコピーしてそれぞれの
+   man を良く読む。それぞれの man をテキスト形式にした nomail.txt
+   nosend.txt を同梱しているので適当に利用して下さい。
+
+5. nomail.conf を /etc/nomail.conf にコピーして適切に設定する。
+   少なくとも以下の 2 項目は設定してください。
+
+        internetaddr
+                インターネットにメールを出す時のメールアドレス
+
+        smtphost
+                プロバイダの SMTP ホスト
+
+   これらのオプションは nosend のオプション -f -s でも設定できま
+   すので，必ずしも /etc/nomail.conf が必要なわけではありません。
+
+6. /etc/inetd.conf に
+
+   smtp stream tcp nowait nomail /usr/sbin/tcpd nomail
+
+   という行を追加して，inetd をリスタートさせる。
+
+7. もし stdarg.ph が無いというエラーが出たら
+
+   # cd /usr/lib/gcc-lib/i586-redhat-linux/2.95.3/include/
+   # h2ph stdarg.h
+
+   としてください。（上記パスは環境によって違います）
+
+以上です。Let's Enjoy!

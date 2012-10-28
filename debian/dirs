@@ -1,0 +1,4 @@
+usr/bin
+usr/sbin
+var/spool/nomail
+etc/nomail

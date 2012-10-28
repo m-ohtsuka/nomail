@@ -1,0 +1,98 @@
+-*- text -*-
+
+Q. 私の Perl でも動きますか?
+
+A. 開発は Perl5.005_03 で行っていますが，知らずに古い Perl との
+   互換性を失っているかもしれません。とりあえず Perl 5.004 での
+   動作確認はしています。特に Syslog 関係はバージョンによって差
+   がいちじるしいようで，どうしても動かなければSyslog 関係を削る
+   と動くかもしれません。
+
+
+Q. procmail ってなんですか?
+
+A. メールをいろいろできるツールです（ぐは）。procmail には -d オ
+   プションを付けて標準入力からメールを渡すと，それを各人のスプー
+   ルに配送してくれる機能があります。Nomail（というか Linux 上の
+   MTA）では，この機能を利用してローカル配送しています。そんなわ
+   けで別に procmail でなくても良いわけで（ファイルロックを気に
+   しなければ）例えば sendmail 付属の mail.local を使っても良い
+   でしょう。
+
+
+Q. stdarg.ph が無いというエラーが出るんですけど
+
+A. Linux の glibc-2.1.x では syslog.h から stdarg.h が include
+   されています。stdarg.h は
+
+   /usr/lib/gcc-lib/i586-redhat-linux/2.95.3/include/
+
+   とか非常にわかりにくいところにあり，Perl をインストールする時
+   に見落していることが多いようです。
+
+   # cd /usr/lib/gcc-lib/i586-redhat-linux/2.95.3/include/
+   # h2ph stdarg.h
+
+   として生成してください。
+
+
+Q. inetd.conf に SMTP を登録するのって必須ですか？
+
+A. プログラムから nomail を直接呼び出してメールを送っているのな
+   らば，inetd に登録する必要はありません。ただし，この場合 LAN
+   の別のマシンからメールを送ることができません。
+
+
+Q. IM の imput とどう違うの?
+
+A. 1. ローカル宛のメールを配送できます。
+   2. SMTP でメールを送ることができます。
+   3. インターネットへメールを出す際 Message-Id: を削除できます。
+   4. 同様に From: のアドレスを書換えられます。
+   5. エイリアスが使えます。
+   6. 設定がすこぶる簡単です。
+
+   7. news が送れません X)
+
+
+Q. .forward は使えないんですか?
+
+A. .procmailrc を使えば同様なことができます。例えば foo@bar.org
+   に転送したい場合
+
+   :0
+   ! foo@bar.org
+
+   などと書きます。
+
+
+Q. テレホーダイの間はすぐに送信するようにできませんか?
+
+A. Nomail の性格上「すぐ送信する」ことはしませんが，例えば
+   UUCP のように cron を使って
+
+   */10 23 * * * /usr/bin/nosend
+   */10 0-7  * * * /usr/bin/nosend
+
+   とすると，テレホーダイの間は 10 分毎に nosend するようになり
+   ます。実用上はこれで十分だと思います。
+
+
+Q. ウチは RHL7 なんだけど xinetd ではどうするの?
+
+以下のようなファイルを作って /etc/xinetd.d に入れてください。
+
+service smtp
+{
+        flags       = REUSE
+        socket_type = stream
+        protocol    = tcp
+        wait        = no
+        user        = nomail
+        server      = /usr/sbin/nomail
+}
+
+
+Q. こんな機能付けてみたんだけど (and/or) バグ見つけたんですけど。
+
+A. negi@KU3G.org までメール下さい。

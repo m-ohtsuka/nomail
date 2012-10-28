@@ -1,0 +1,102 @@
+.\" Copyright(C) 2000, Masahito Ohtsuka <negi@KU3G.org>,
+.\" Created 2000. All rights reserved.
+.\"
+.\" $Id: $
+.TH NOMAIL 8
+.SH "名前"
+nomail \- ダイアルアップ環境用オフライン SMTP サーバ
+.SH "書式"
+.BI "nomail [[" オプション "] "宛先のリスト "]"
+.PP
+.B Nomail
+はダイアルアップ環境の為の簡単なメールサーバです。ローカル宛メー
+ルは procmail 等のローカルメーラを利用してそのまま自スプールに配
+送し，インターネット宛メールはプロバイダの SMTP サーバに配送を依
+頼します。インターネット宛のメールは一度 /var/spool/nomail にキューイ
+ングされ，実際の SMTP サーバとの通信は
+.B Nosend
+が行います。
+.PP
+.B Nomail
+は inetd 経由で SMTP ポートを監視します。
+/etc/inetd.conf に以下のような記述を追加してください。
+.PP
+.DS
+smtp stream tcp nowait nomail /usr/sbin/tcpd nomail
+.DE
+.PP
+宛先を指定するか，一つでもオプションを指定すると sendmail 互換動
+作をします。オプションは今のところ \-F \-f \-t \-i \-o を付ける
+ことができますが，\-o に関しては具体的な動作はしません。
+sendmail をMUA として使っているときの置き換えとして利用する場合
+の対処です。Nomail を MUA としても利用したいのなら
+/usr/sbin/sendmail へリンクを張ってください。
+.PP
+.SH "設定ファイル"
+各種設定は /etc/nomail/nomail.conf で行います。設定ファイルには以
+下のオプションが指定できます。
+このうち
+.B internetaddr
+と
+.B smtphost
+は必須です。
+いくつかのオプションは nosend(8) の引数としても設定できます。
+.TP
+.BI localuser
+配送可能なローカルユーザーを記述します。各ユーザーはカンマ `,'
+で区切ってください。デフォルトではローカルにアカウントのあるユー
+ザー全てになります。
+.TP
+.BI localdomain
+ローカル宛の配送とみなすドメインを記述します。デフォルトは自ホス
+トの FQDN からホスト名を取ったものになります。ドメインは複数指定
+できます。その場合カンマ `,' で区切ってください。
+.TP
+.BI local_mda
+ローカルメーラを指定します。デフォルトでは procmail が使われます。
+.TP
+.BI internetaddr
+インターネット側にメールを出すときのメールアドレスを指定します。
+具体的にはプロバイダの SMTP ホストへ通知する MAIL FROM: として使
+われます。また
+.B rewriteaddr
+を指定した場合，メールの From: のアドレスをこのアドレスに書換え
+ます。
+.TP
+.BI smtphost
+プロバイダの SMTP ホストを指定します。
+.TP
+.BI smtpport
+プロバイダの SMTP ポート番号を指定します。特殊用途のために用意
+されているもので、通常、変更する必要はありません。
+.TP
+.BI rewriteaddr
+インターネットにメールを出す時に From: のメールアドレスを
+.B internetaddr
+で書換えたい場合 yes と指定します。常にローカルだけで通用するメー
+ルアドレスを使用している場合有用です。
+.TP
+.B invalid_msgid
+インターネットにメールを送る時に Message-Id: を削除したければ
+yes と指定します。
+.TP
+.B timeout
+プロバイダの SMTP サーバとの接続が timeout 秒の間確立しなければ，
+強制終了します。デフォルトは 40 秒です。
+.SH エイリアス
+.B Nomail
+は sendmail の /etc/aliases のエミュレーションを行います。ただし
+| と include はサポートしません。またアドレスはループしないよう
+にしてください。現在のところ止める手立てがありません（苦笑）
+.SH 関連項目
+.B procmail(1)
+.B nosend(8)
+.B inetd(8)
+.B sendmail(8)
+.SH 関連ファイル
+.PP
+.B /var/spool/nomail/
+キューディレクトリ
+.PP
+.B /etc/nomail/nomail.conf
+設定ファイル

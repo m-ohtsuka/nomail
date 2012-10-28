@@ -1,0 +1,166 @@
+2004-4-21  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: $VERSION = "0.4.11"
+	* nosend: キューディレクトリ中のファイル取得方法を変更
+
+2002-01-15  YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+	* nosend: $VERSION = "0.4.10-v6"
+	IPv6 support.
+	To use this feature, you need Socket6 package.
+
+	Introduced -c option to specify configuration file.
+	Introduced -p option and smtpport to specify remote SMTP 
+	port.
+
+2000-12-15  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: $VERSION = "0.4.10"
+
+	* nomail: MAIL FROM:<> としたときに 500 を返す bug を fix
+
+2000-09-25  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: $VERSION = "0.4.9"
+	RFC821 4.5.2. TRANSPARENCY 準拠
+	thanks to Osame Ken'ichiro <plonk@reo.to>
+
+	* nosend: $VERSION = "0.4.9"
+
+2000-06-07  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: $VERSION = 0.4.7;
+
+2000-06-06  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend:
+	メールが送られなくてもキューファイルを消去してしまう bug を fix
+
+2000-06-01  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: localdomain に複数のドメインを記述できるようにした
+
+2000-05-26  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: $VERSION = 0.4.6
+	エイリアスを全部スキップするというエンバグを修正
+
+	* nosend: $VERSION = 0.4.6
+
+2000-05-25  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: $VERSION = 0.4.5
+
+	* nosend: $VERSION = 0.4.5
+	smtphost を引くのに失敗すると自ホストの SMTP に接続してしまうので
+	chat_smtp() の inet_aton() 呼び出しに例外処理を加えた。
+
+2000-05-23  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: $VERSION = 0.4.4
+
+	* nomail: smtp_loop の last を elsif に変更，
+	DATA のあとに RSET をするようにした。
+
+	エイリアスを読む時，| と include がある行は
+	スキップするようにした。
+
+2000-05-09  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail:
+	接続元をログに残すのをやめた（良く考えたら inetd の方で取れるし）
+
+	* nosend: some bug fix
+
+2000-04-24  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: /etc/nomail.conf が無くても文句を言わないようにした。
+
+	* nosend: internetaddr smtphost rewriteaddr invalid_msgid
+	の各オプションを nosend の引数で渡せるようにした。
+	thanks to densuke@ga2.so-net.ne.jp
+
+2000-04-23  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: some bug fix
+
+2000-04-22  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: Nomail (0.4/Caravanserai) Released.
+
+	* nomail: Nomail (0.4/Caravanserai) Released.
+
+	エイリアスをサポート
+
+	localuser を設定していない場合，ローカルユーザーを getpwent から
+	得るようにした。
+
+	SMTP で \r\n を返すようにした。
+
+2000-04-15  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: syslog を使ってログを取るようにした
+
+2000-04-14  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: Masahito Ohtsuka (NegI) <negi@KU3G.org>
+
+	とか
+
+	(Masahito Ohtsuka) negi@KU3G.org (NegI@kagoshima)
+
+	とか
+
+	Nobody <nobody>
+
+	みたいな「変」なアドレスでも正常に処理できるようにした。
+
+	* nosend: ヘッダのないメールもちゃんと送れるようにした
+
+	* nomail: ヘッダのないメールも，ちゃんと送れるようにした。
+
+
+2000-04-13  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: some bug fix.
+
+	* nomail: added -F option
+	added -f option
+	added -t option
+
+2000-04-12  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nosend: New file.
+
+	* nomail: new option "invalid_msgid"
+	added del_header()
+	added split_mail_data()
+
+2000-04-11  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: Nomail (0.3/SANTANA III) Released.
+
+	プログラムの見通しを良くした
+	いくつかの bug fix
+
+	* nomail: nomail.conf で imput と procmail の設定をできるようにした
+	localdomain 取得方法を若干変更
+	localuser 指定してない場合, localdomain 宛のものすべてを local
+	配送するようにした (thanks to simm@KU3G.org)
+
+2000-04-09  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: localuser, localdomain を設定していない場合
+	自動で設定するようにした。
+
+2000-04-08  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: Nomail (0.2/Abraxas) Released.
+
+	added MUA mode.
+
+2000-04-07  Masahito Ohtsuka  <negi@KU3G.org>
+
+	* nomail: Nomail (0.1/SANTANA) Released.
+
+	New file.

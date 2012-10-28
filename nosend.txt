@@ -1,0 +1,40 @@
+NOSEND(8)                                                            NOSEND(8)
+
+
+
+名前
+       nosend - キューに溜まったメールを送り出す
+
+書式
+       nosend [オプション]
+
+       nosend はキューディレクトリ (/var/spool/nomail/) に溜まったメールを，プ
+       ロバイダの SMTP サーバに送り出すツールです。ip-up 等に記述しておくと 便
+       利でしょう。
+
+オプション
+       -c     読み込む設定ファイルをデフォルトから変更します。
+
+       -f     internetaddr を上書きします。
+
+       -s     smtphost を上書きします。
+
+       -p     smtpport を上書きします。
+
+       -r     rewriteaddr を有効にします。
+
+       -m     invalid_msgid を有効にします。
+
+       -h     ヘルプメッセージを表示します。
+
+関連項目
+       nomail(8)
+
+関連ファイル
+       /var/spool/nomail/ キューディレクトリ
+
+       /etc/nomail/nomail.conf 設定ファイル
+
+
+
+                                                                     NOSEND(8)

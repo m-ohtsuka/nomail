@@ -1,0 +1,339 @@
+#!/usr/bin/perl -U
+# -*- cperl -*-
+#
+# Nomail - simple SMTP server for dialup user
+#
+# Copyright(C) 2000, Masahito Ohtsuka <negi@KU3G.org>,
+# Created 2000. All rights reserved.
+#
+# $Id: nomail,v 1.22 2000/12/14 16:34:38 negi Exp $
+
+use Getopt::Std;
+use Sys::Hostname;
+#use Sys::Syslog qw(:DEFAULT setlogsock);
+# Hmmm, Perl5.004 is not able..
+use Sys::Syslog;
+
+$VERSION = "0.4.11";
+$CODENAME = "Caravanserai";
+$CONF_FILE = "/etc/nomail/nomail.conf";
+$MAILQ = "/var/spool/nomail/";
+($host) = gethostbyname(hostname);
+$remote_host = "localhost";
+$msg_c = 0;			# Message Counter;
+
+@localuser = ();
+@mail_data = ();
+@header = ();
+@body = ();
+@local_rcpt = ();
+@inet_rcpt = ();
+@rcpt = ();
+@localdomain = ();
+
+$OPTION{local_mda} = "/usr/bin/procmail -d";
+
+# split @mail_data to @header and @body
+sub split_mail_data{
+    my $body = undef;
+    if($mail_data[0] =~ /^[\w\-]+:/){ # if header exist
+	for(@mail_data){
+	    if(/^$/o && !$body){
+		$body = 1;
+		next;
+	    }
+	    if($body){
+		push(@body, $_);
+	    } else {
+		if(/^\s/){
+		    $header[$#header] .= "\n" . $_;
+		} else {
+		    push(@header, $_);
+		}
+	    }
+	}
+    } else {
+	@header = ();
+	@body = @mail_data;
+    }
+}
+
+#
+sub rfc822_date($){
+    my $time = shift;
+    my ($sec, $min, $hour, $day, $mon, $year, $wday) = gmtime($time);
+    $year += 1900;
+    $mon = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+	    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')[$mon];
+    $wday = ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat')[$wday];
+    sprintf("%s, %02d %s %d %02d:%02d:%02d GMT",
+	    $wday, $day, $mon, $year, $hour, $min, $sec);
+}
+
+#
+sub uniq(@){
+    my $prev = undef;
+    grep($_ ne $prev && (($prev) = $_), sort(@_));
+}
+
+#
+sub del_header($){
+    my $regex = shift;
+    @header = grep(!/$regex/i, @header);
+}
+
+#
+sub local_delivery{
+    my $time = time;
+    my $date = &rfc822_date($time);
+    &del_header("^Bcc:");
+    unless(grep(/^Message-id:/i, @header)){
+	push(@header, "Message-Id: <$time$msg_c.$$\@$host>");
+    }
+    unless(grep(/^Date:/i, @header)){
+	push(@header, "Date: $date");
+    }
+    unless(grep(/^From:/i, @header)){
+	my $from = undef;
+	if($opt_f){
+	    $from = $opt_f;
+	} elsif($mail_from){
+	    $from = $mail_from;
+	    $from .= "@" . $localdomain[0] unless $from =~ /@/;
+	} else {
+	    $from = getlogin || (getpwuid($<))[0] || "unknown";
+	    $from .= "@" . $localdomain[0];
+	}
+	$from = "$opt_F <$from>" if($opt_F);
+	push(@header, "From: $from");
+    }
+    unshift(@header,
+	 sprintf("Received: from %s\n\tby %s (Nomail %s/%s);\n\t%s",
+		 $remote_host, $host, $VERSION, $CODENAME, $date));
+    for(&uniq(@local_rcpt)){
+	open(MAIL, "|$OPTION{local_mda} $_");
+	print MAIL join("\n", @header) ."\n";
+	print MAIL "\n";
+	print MAIL join("\n", @body) ."\n";
+	close MAIL;
+    }
+    syslog('info', "DELIVERY: rcpt=" . join(",", @local_rcpt))
+}
+
+#
+sub internet_delivery{
+    my $time = time;
+    open(MAIL, ">$MAILQ$time$msg_c$$") or die "$MAILQ : $!\n";
+    for(&uniq(@inet_rcpt)){
+	print MAIL "R" . $_ . "\n";
+    }
+    print MAIL "\n";
+    print MAIL join("\n", @mail_data) . "\n";
+    close MAIL;
+    syslog('info', "QUEUE: qid=$time$msg_c$$ rcpt=" . join(",", @inet_rcpt));
+}
+
+#
+sub delivery{
+    &local_delivery if(@local_rcpt);
+    &internet_delivery if(@inet_rcpt);
+}
+
+# expand %aliases and store a list of recipient address to @rcpt
+#
+# args   : list of rcpt to addresses
+# return : none
+sub expand_alias(@){
+    for(@_){
+	if(@{$alias{$_}}){
+	    my @tmp = ();
+	    for(@{$alias{$_}}){
+		push(@tmp, @{$alias{$_}} ? @{$alias{$_}} : $_);
+	    }
+	    &expand_alias(uniq(@tmp));
+	} else {
+	    push(@rcpt, $_);
+	}
+    }
+}
+
+# args   : recipient to address
+# return : rcpt to is exist? yes=undef no=unknown user
+sub rcpt_check($){
+    my $rcpt_to = shift;
+    @rcpt = ();
+    &expand_alias(@{$alias{$rcpt_to}});
+    @rcpt = $rcpt_to unless(@rcpt);
+    @rcpt = &uniq(@rcpt);
+    for $rcpt (@rcpt){
+	my ($name, $domain) = split(/@/, $rcpt);
+
+	if(grep ($domain =~ /$_/i, @localdomain) ||
+	   $domain eq undef){
+	    if(grep($_ eq $name, @localuser)){
+		push(@local_rcpt, $name);
+	    } else {
+		return($rcpt);
+	    }
+	} else {
+	    push(@inet_rcpt, $rcpt);
+	}
+    }
+    undef;
+}
+
+sub smtp_reset{
+    @mail_data = ();
+    @header = ();
+    @body = ();
+    @local_rcpt = ();
+    @inet_rcpt = ();
+    $mail_from = undef;
+}
+
+# SMTP mode loop
+sub smtp_loop{
+    $|=1;
+    print "220 $host SMTP Nomail $VERSION ($CODENAME)\r\n";
+    while(<STDIN>){
+	syslog('debug', $_);
+	if(/DEBUG/i){
+	    while(my ($key, $val) = each %OPTION){
+		print "$key = $val\n";
+	    }
+	    print "remote_host = $remote_host\n";
+	    print "mail_from = $mail_from\n";
+	    print "localuser = " . join(",", @localuser) . "\n";
+	    print "local_rcpt = " . join(",", @local_rcpt) . "\n";
+	    print "inet_rcpt = " . join(",", @inet_rcpt) . "\n";
+	} elsif(/^HELO\s+([\d\w\.\-]+)/i){
+	    $remote_host = $1;
+	    print "250 $host Hello $remote_host, pleased to meet you\r\n";
+	} elsif(/^MAIL\ FROM:\s*<?([\d\w@\.\-]+)?>?/i){
+	    $mail_from = $1 || "nomail";
+	    print "250 Sender ok $mail_from\r\n";
+	} elsif(/^RCPT\ TO:\s*<?([\d\w@\.\-]+)>?/i){
+	    if(my $unknown = &rcpt_check($1)){
+		@local_rcpt = ();
+		@inet_rcpt = ();
+		$mail_from = undef;
+		print "550 User unknown $unknown\r\n";
+	    } else {
+		print "250 Recipient ok\r\n";
+	    }
+	} elsif(/^DATA/i){
+	    print "354 Enter mail, end with \".\" on a line by itself\r\n";
+	    while(<STDIN>){
+		tr/\r\n//d;
+		last if /^\.$/;
+		s/^\.(?=\.)//;
+		push(@mail_data, $_);
+	    }
+	    $msg_c++;
+	    &split_mail_data;
+	    &delivery;
+	    &smtp_reset;
+	    print "250 Message accepted for delivery\r\n";
+	} elsif(/^RSET/i){
+	    &smtp_reset;
+	    print "250 Reset state\r\n";
+	} elsif(/^NOOP/i){
+	    print "250 OK\r\n";
+	} elsif(/^QUIT/i){
+	    print "221 $host closing connection\r\n";
+	    exit;
+	} else {
+	    print "500 Command unrecognized\r\n";
+	}
+    }
+}
+
+##
+## MAIN
+##
+if(open(CONF, $CONF_FILE)){
+    while(<CONF>){
+	chomp;
+	next if /^\s*#/o;
+	next if /^\s*$/o;
+	my ($key, $val) = /^([^\s]+)\s+(.*)/;
+	$OPTION{$key} = $val;
+    }
+    close CONF;
+}
+
+unless($OPTION{localdomain}){
+    $host =~ /(.*?)\.(.*)/;
+    $OPTION{localdomain} = $2;
+}
+
+@localdomain = split(/\s*,\s*/, $OPTION{localdomain});
+push @localdomain, "localhost";
+
+if($OPTION{localuser}){
+    @localuser = split(/\s*,\s*/, $OPTION{localuser});
+} else {
+    while(my ($name) = getpwent){
+  	push(@localuser, $name);
+    }
+}
+
+# read aliases
+if(open(ALIAS, "/etc/aliases")){
+    while(<ALIAS>){
+	next if /^\s*#/o;
+	next if /^\s*$/o;
+	next if /include/o;
+	next if /\|/o;
+	my ($key, $val) = split(/:/);
+	$key =~ s/\s*//g;
+	$val =~ s/\s*//g;
+	push(@{$alias{$key}}, split(",", $val));
+    }
+    close ALIAS;
+}
+
+Sys::Syslog::setlogsock 'unix';	# :-)
+openlog('nomail', 'pid', 'mail');
+if(@ARGV){
+    # MUA mode
+    my $unknown = undef;
+    syslog('info', "invoked MUA mode");
+    syslog('debug', "ARGV: " . join " ", @ARGV);
+    getopts('F:f:o:ti');
+    while(<STDIN>){
+        chomp;
+	unless ($opt_i) {
+            last if /^\.$/;
+            s/^\.(?=\.)//;
+        }
+        push(@mail_data, $_);
+    }
+    $msg_c++;
+    &split_mail_data;
+    if($opt_t){
+	for(@header){
+	    if(/(^To|^Cc|^Bcc):(.*)/is){
+		for(split(/,/, $2)){
+		    $_ =~ s/\(.*?\)//g;	# remove (comment)
+		    if(/<(.*?)>/){      # <address>
+			$unknown = &rcpt_check($1);
+		    } else {
+			tr/ \n\t//d;
+			$unknown = &rcpt_check($_);
+		    }
+		    die "User unknown $unknown\n" if $unknown;
+		}
+	    }
+	}
+    } else {
+	for(@ARGV) {
+	    $unknown = &rcpt_check($_);
+	    die "User unknown $unknown\n" if $unknown;
+	}
+    }
+    &delivery;
+} else {
+    # SMTP mode
+    &smtp_loop;
+}

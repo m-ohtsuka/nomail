@@ -1,0 +1,6 @@
+#! /bin/sh
+chown nomail /usr/bin/nosend
+chown nomail /usr/sbin/nomail
+chown nomail /var/spool/nomail
+chmod 4711 /usr/bin/nosend /usr/sbin/nomail
+chmod 700 /var/spool/nomail

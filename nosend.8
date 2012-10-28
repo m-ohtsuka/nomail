@@ -1,0 +1,44 @@
+.\" Copyright(C) 2000, Masahito Ohtsuka <negi@KU3G.org>,
+.\" Created 2000. All rights reserved.
+.\"
+.\" $Id: $
+.TH NOSEND 8
+.SH "名前"
+nosend \- キューに溜まったメールを送り出す
+.SH "書式"
+.BI "nosend [オプション]"
+.PP
+nosend はキューディレクトリ (/var/spool/nomail/) に溜まったメールを，
+プロバイダの SMTP サーバに送り出すツールです。ip-up 等に記述し
+ておくと便利でしょう。
+.SH オプション
+.TP
+.BI -c
+読み込む設定ファイルをデフォルトから変更します。
+.TP
+.BI -f
+internetaddr を上書きします。
+.TP
+.BI -s
+smtphost を上書きします。
+.TP
+.BI -p
+smtpport を上書きします。
+.TP
+.BI -r
+rewriteaddr を有効にします。
+.TP
+.BI -m
+invalid_msgid を有効にします。
+.TP
+.BI -h
+ヘルプメッセージを表示します。
+.SH 関連項目
+.B nomail(8)
+.SH 関連ファイル
+.PP
+.B /var/spool/nomail/
+キューディレクトリ
+.PP
+.B /etc/nomail/nomail.conf
+設定ファイル

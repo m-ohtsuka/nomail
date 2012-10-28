@@ -1,0 +1,230 @@
+#!/usr/bin/perl -U
+# -*- cperl -*-
+#
+# Nosend - send mail tool for nomail
+#
+# Copyright(C) 2000, Masahito Ohtsuka <negi@KU3G.org>,
+# Created 2000. All rights reserved.
+# 
+# IPv6 support by YOSHIFUJI Hideaki / USAGI Project
+# Copyright (C)2002 USAGI/WIDE Project.
+#
+# $Id: nosend,v 1.13 2000/12/14 16:34:59 negi Exp $
+
+use Getopt::Std;
+use Fcntl ':flock';
+use Socket;
+eval "use Socket6";
+use Sys::Hostname;
+
+$VERSION = "0.4.11";
+$CODENAME = "Caravanserai";
+$CONF_FILE = "/etc/nomail/nomail.conf";
+$MAILQ = "/var/spool/nomail/";
+$OPTION{timeout} = 40;
+$OPTION{smtpport} = 25;
+$OPTION{inet6} = defined(&getaddrinfo);
+
+# split @mail_data to @header and @body
+sub split_mail_data{
+    my $body = undef;
+    if($mail_data[0] =~ /^[\w\-]+:/){ # if header exist
+	for(@mail_data){
+	    if(/^$/o && !$body){
+		$body = 1;
+		next;
+	    }
+	    if($body){
+		push(@body, $_);
+	    } else {
+		if(/^\s/){
+		    $header[$#header] .= "\r\n" . $_;
+		} else {
+		    push(@header, $_);
+		}
+	    }
+	}
+    } else {
+	@header = ();
+	@body = @mail_data;
+    }
+}
+
+#
+sub del_header($){
+    my $regex = shift;
+    @header = grep(!/$regex/i, @header);
+}
+
+#
+sub get_mail($){
+    my $file = shift;
+    open(MAIL, "$MAILQ$file");
+    flock(MAIL, LOCK_EX | LOCK_NB) || die "$!";
+    my $mail_data = undef;
+    my @envelope = ();
+    while(<MAIL>){
+	chomp;
+	if(/^$/o && !$mail_data){
+	    $mail_data = 1;
+	    next;
+	}
+	if($mail_data){
+	    push(@mail_data, $_);
+	} else {
+	    push(@envelope, $_);
+	}
+    }
+    for(@envelope){
+	if(/^R(.*)/){
+	    push(@rcpt_to, $1);
+	}
+    }
+    &split_mail_data;
+    &del_header("^Bcc:");
+    &del_header("^Message-id:") if $OPTION{invalid_msgid} eq "yes";
+    push(@header, "X-Dispatcher: Nomail $VERSION ($CODENAME)");
+    for(@header){
+	$OPTION{rewriteaddr} eq "yes" &&
+	    /^From:/i && s/[\w\.\-]+@[\w\.\-]+/$OPTION{internetaddr}/o;
+    }
+}
+
+sub del_mail($){
+    flock(MAIL, LOCK_UN);
+    close MAIL;
+    unlink("$MAILQ$file");
+}
+
+#
+sub chat_smtp{
+    my $family;
+
+    local $SIG{ALRM} = sub { die "Connection Timeout\n" };
+    alarm $OPTION{timeout};
+
+    if ($OPTION{inet6}) {
+	my @res = getaddrinfo($OPTION{smtphost}, $OPTION{smtpport}, AF_UNSPEC, SOCK_STREAM);
+	unless (@res) {
+	    die "$OPTION{smtphost} port $OPTION{smtpport} ... Unknown host or port\n";
+	}
+
+	my ($socktype,$proto,$saddr,$cname,$host,$port);
+	$family = -1;
+
+	while(scalar(@res) >= 5) {
+	    ($family,$socktype,$proto,$saddr,$cname, @res) = @res;
+	    ($host, $port) = getnameinfo($saddr, NI_NUMERICHOST | NI_NUMERICSERV);
+	    socket(S, $family,$socktype,$proto) or next;
+	    print STDERR "Connect to $host port $port ... ";
+	    connect(S, $saddr) and last;
+	    close(S);
+	    $family = -1;
+	}
+    } else {
+	$family = PF_INET;
+	socket(S, $family, SOCK_STREAM, getprotobyname('tcp'));
+ 	my $addr = inet_aton($OPTION{smtphost})
+	    or die "$OPTION{smtphost} ... Unknown Host\n";
+	my $ent = sockaddr_in($OPTION{smtpport}, $addr);
+	print STDERR "Connect to $OPTION{smtphost} ... ";
+	connect(S, $ent) or $family = -1;
+    }
+    alarm 0;
+    if ($family == -1) {
+	die "Can't connect\n";
+    }
+    print STDERR "Ok!\n";   
+    select(S); $| = 1;
+    while (<S>) {
+	last if /^220\ .*\r\n/;
+    }
+    print sprintf("HELO %s\r\n", hostname);
+    while (<S>) {
+	last if /^250\ .*\r\n/;
+    }
+    for $file (@files){
+	print STDERR "Sending message $file ... ";
+	&get_mail($file);
+	print "MAIL FROM: <$OPTION{internetaddr}>\r\n";
+	while (<S>) {
+	    last if /^250\ .*\r\n/;
+	}
+	for $rcpt_to (@rcpt_to){
+	    print "RCPT TO: <$rcpt_to>\r\n";
+	    while (<S>) {
+		die "Refused!\n" if /^5\d\d\ .*\r\n/;
+		last if /^250\ .*\r\n/;
+	    }
+	}
+	print "DATA\r\n";
+	while (<S>) {
+	    last if /^354\ .*\r\n/;
+	}
+	print join("\r\n", @header) . "\r\n";
+	print "\r\n";
+	for(@body){
+	    s/^\./../;
+	    print $_ . "\r\n";
+	}
+	print ".\r\n";
+	while (<S>) {
+	    last if /^250\ .*\r\n/;
+	}
+	print "RSET\r\n";
+	while (<S>) {
+	    last if /^250\ .*\r\n/;
+	}
+	print STDERR "Ok!\n";
+	&del_mail($file);
+	@mail_data = ();
+	@body = ();
+	@header = ();
+	@rcpt_to = ();
+    }
+    print "QUIT\r\n";
+}
+
+#
+# MAIN
+#
+getopts('c:f:s:p:rmh');
+if($opt_h){
+    select STDERR;
+    print "Usage: nosend [OPTION]\n";
+    print "\t-c\tconfiguration file\n";
+    print "\t-f\toverride internetaddr\n";
+    print "\t-s\toverride smtphost\n";
+    print "\t-p\toverride smtpport\n";
+    print "\t-r\trewriteaddr is 'yes'\n";
+    print "\t-m\tinvalid_msgid is 'yes'\n";
+    print "\t-h\tprint this message\n";
+    exit;
+}
+
+$CONF_FILE = $opt_c if $opt_c;
+
+if(open(CONF, $CONF_FILE)){
+    while(<CONF>){
+	chomp;
+	next if /^\s*#/o;
+	next if /^\s*$/o;
+	my ($key, $val) = /^([^\s]+)\s+(.*)/;
+	$OPTION{$key} = $val;
+    }
+    close CONF;
+}
+
+$OPTION{internetaddr} = $opt_f if $opt_f;
+$OPTION{smtphost} = $opt_s if $opt_s;
+$OPTION{smtpport} = $opt_p if $opt_p;
+$OPTION{rewriteaddr} = "yes" if $opt_r;
+$OPTION{invalid_msgid} = "yes" if $opt_m;
+
+die "internetaddr is not set\n" unless($OPTION{internetaddr});
+die "smtphost is not set\n" unless($OPTION{smtphost});
+die "smtpport is not set\n" unless($OPTION{smtpport});
+opendir(DIR, $MAILQ) or die "$MAILQ: $!\n";
+@files = grep {/^[0-9]+/} readdir DIR;
+closedir DIR;
+&chat_smtp if(@files);

@@ -1,0 +1,11 @@
+#! /bin/sh -e
+
+if [ "$1" = "purge" ]
+then
+  rm -rf /etc/nomail
+  rm -rf /var/spool/nomail
+fi
+
+if [ "$1" = "purge" ] ; then
+        deluser --quiet nomail > /dev/null || true
+fi

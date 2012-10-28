@@ -1,0 +1,21 @@
+Source: nomail
+Section: mail
+Priority: optional
+Maintainer: Masahito Ohtsuka <negi@KU3G.org>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.0
+Depends: procmail perl
+
+Package: nomail
+Architecture: all
+Conflicts: mail-transport-agent
+Replaces: mail-transport-agent
+Provides: mail-transport-agent
+Description: This is offline SMTP server
+ Nomail is a simple MTA like sendmail.
+ 1. local mail delivery.
+ 2. Can use SMTP protocol.
+ 3. Mail send with delete "Message-Id:" header to internet.
+ 4. and "From" header Replase.
+ 5. Can use aliases.
+ 6. Very Easy setup!!!
